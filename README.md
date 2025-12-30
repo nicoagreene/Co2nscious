@@ -1,6 +1,6 @@
 # Co₂nscious
 
-Chrome extension that quantifies the environmental impact of LLM conversations on OpenAI Chat and Claude.
+Chrome extension that quantifies the environmental impact of LLM conversations of Claude.
 
 ## Features
 
@@ -44,6 +44,7 @@ Chrome extension that quantifies the environmental impact of LLM conversations o
 ### Debug Mode
 
 Enable "Enable Debug Logging" in the popup, then open DevTools (Cmd+Option+J) to see:
+
 - Send detection events
 - Message node observations
 - Text growth updates
@@ -57,24 +58,14 @@ Enable "Enable Debug Logging" in the popup, then open DevTools (Cmd+Option+J) to
 
 - **Limited Sited** Currently is only working on claude, hopefully will be expanded to many social medias and other AI platforms.
 - **Emission tracking** All emission tracking is an estimate. Exact values are pretty much impossible to get at the moment.
-
 - **Heuristic-based**: Uses DOM observation and simple text heuristics (not perfect)
 - **Approximate token counts**: Uses 4 chars/token ratio by default (not exact)
-
 
 ## How Metrics Are Calculated
 
 **Emissions** are calculated using the Jegham et al. (2025) methodology based on:
+
 - Inference time (latency + generation time)
 - GPU/CPU power draw
 - Model-specific hardware specifications
 - Data center PUE and regional carbon intensity
-
-**Equivalents** help quantify impact:
-- **Car miles**: CO₂ (grams) / 400
-- **Phone charge**: (Energy Wh / 14.8) × 100%
-
-
-
-
-
