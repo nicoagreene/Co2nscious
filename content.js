@@ -9,6 +9,11 @@
   let tokenRatio = TOKEN_RATIO_DEFAULT;
   let debug = false;
 
+  // In-memory conversation totals (reset when the tab navigates/closes)
+  let convQueryCount = 0;
+  let convEnergyWh = 0;
+  let convCarbonGrams = 0;
+
   function debugLog(...args) {
     if (debug) console.debug('LLM-metrics-debug:', ...args);
   }
@@ -61,14 +66,39 @@
         <span style="text-align: right; color: #6b7280;">🪨 Carbon:</span>
         <span id="carbon-val" style="text-align: left;">—</span>
       </div>
-      <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 12px;">
+      <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 12px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
         <span style="text-align: right; color: #6b7280;">Car miles:</span>
         <span id="miles-val" style="text-align: left;">—</span>
         <span style="text-align: right; color: #6b7280;">Phone charge:</span>
         <span id="phone-val" style="text-align: left;">—</span>
       </div>
+      <div style="font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">This Conversation</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; text-align: center; font-size: 11px;">
+        <div>
+          <div id="conv-energy-overlay" style="font-weight: 600; color: #1f2937;">0</div>
+          <div style="color: #9ca3af;">Wh</div>
+        </div>
+        <div>
+          <div id="conv-carbon-overlay" style="font-weight: 600; color: #1f2937;">0</div>
+          <div style="color: #9ca3af;">g CO₂</div>
+        </div>
+        <div>
+          <div id="conv-queries-overlay" style="font-weight: 600; color: #1f2937;">0</div>
+          <div style="color: #9ca3af;">queries</div>
+        </div>
+      </div>
     `;
     document.documentElement.appendChild(o);
+  }
+
+  function updateConvOverlay() {
+    ensureOverlay();
+    const energyEl = document.getElementById('conv-energy-overlay');
+    const carbonEl = document.getElementById('conv-carbon-overlay');
+    const queriesEl = document.getElementById('conv-queries-overlay');
+    if (energyEl) energyEl.textContent = convEnergyWh.toFixed(3);
+    if (carbonEl) carbonEl.textContent = convCarbonGrams.toFixed(3);
+    if (queriesEl) queriesEl.textContent = convQueryCount;
   }
 
   function updateOverlay(text) {
@@ -319,21 +349,35 @@
         // Skip if we've already started tracking this node
         if (nodeMetrics.has(node)) return;
 
+        // Guard 1: don't track anything until the user has sent at least one message
+        if (!lastSend) return;
+
         const text = (node.textContent || '').trim();
 
         // Skip nodes with very little text
         if (text.length < 3) return;
 
-        // Skip if the text matches the user's input (heuristic to skip input echo)
-        if (lastSend && text === lastSend.text) {
-          debugLog('skipping node that matches user input');
+        const now = Date.now();
+        const msSinceSend = now - lastSend.time;
+
+        // Guard 2: skip nodes that appear within 400ms of a send — those are the user's
+        // own message bubble being rendered, not an assistant response
+        if (msSinceSend < 400) {
+          debugLog('skipping node, too soon after send (likely user message echo)');
+          return;
+        }
+
+        // Guard 3: skip if the node text contains the start of the user's message
+        // (handles cases where the rendered echo differs slightly from raw textarea text)
+        const snippet = lastSend.text.slice(0, 100);
+        if (snippet && text.includes(snippet)) {
+          debugLog('skipping node, text matches user input snippet');
           return;
         }
 
         // This looks like a new assistant message. Start tracking it.
-        const now = Date.now();
         const firstTextTime = now;
-        const latency = lastSend ? Math.max(0, firstTextTime - lastSend.time) : null;
+        const latency = Math.max(0, firstTextTime - lastSend.time);
 
         nodeMetrics.set(node, {
           firstTextTime,
@@ -411,6 +455,15 @@
                 phone: '—'
               });
             }
+            metrics.energyWh = emissions ? parseFloat(emissions.energyWh) : 0;
+            metrics.carbonGrams = emissions ? parseFloat(emissions.carbonGrams) : 0;
+
+            // Accumulate conversation totals
+            convQueryCount += 1;
+            convEnergyWh += metrics.energyWh;
+            convCarbonGrams += metrics.carbonGrams;
+            updateConvOverlay();
+
             sendMetrics(metrics);
 
             // Clean up this node from tracking

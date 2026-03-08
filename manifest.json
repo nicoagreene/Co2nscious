@@ -3,7 +3,7 @@
   "name": "LLM Response Metrics",
   "version": "1.0.0",
   "description": "Measure LLM response metrics: latency, tokens, tokens/sec on OpenAI and Anthropic chat pages.",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
   "host_permissions": [
     "https://claude.ai/*",
     "https://*.anthropic.com/*"

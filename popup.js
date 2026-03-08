@@ -97,4 +97,32 @@ document.addEventListener('DOMContentLoaded', () => {
       displayMetric(changes.lastLlmMetric.newValue);
     }
   });
+
+  // --- Conversation totals (per-tab, session storage) ---
+  function displayConversationTotals(tabId) {
+    const key = `tabTotals_${tabId}`;
+    chrome.storage.session.get({ [key]: null }, (res) => {
+      const totals = res[key];
+      document.getElementById('conv-energy').textContent = totals ? totals.energyWh.toFixed(3) : '0';
+      document.getElementById('conv-carbon').textContent = totals ? totals.carbonGrams.toFixed(3) : '0';
+      document.getElementById('conv-queries').textContent = totals ? totals.queryCount : '0';
+    });
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0] && tabs[0].id;
+    if (tabId == null) return;
+
+    displayConversationTotals(tabId);
+
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'session' && changes[`tabTotals_${tabId}`]) {
+        displayConversationTotals(tabId);
+      }
+    });
+
+    document.getElementById('reset-conv').addEventListener('click', () => {
+      chrome.storage.session.remove(`tabTotals_${tabId}`, () => displayConversationTotals(tabId));
+    });
+  });
 });
